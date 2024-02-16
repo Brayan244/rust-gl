@@ -8,48 +8,47 @@ use gl::{
     UseProgram,
 };
 
+// Helper function to create a CString with whitespace
+fn create_whitespace_cstring_with_len(len: usize) -> CString {
+    let mut buffer: Vec<u8> = Vec::with_capacity(len + 1);
+    buffer.extend([b' '].iter().cycle().take(len));
+    unsafe { CString::from_vec_unchecked(buffer) }
+}
+
+// Shader struct and its implementation
 pub struct Shader {
     id: GLuint,
 }
 
 impl Shader {
     pub fn from_source(source: &CStr, kind: GLenum) -> Result<Self, String> {
-        let id: u32 = unsafe { gl::CreateShader(kind) };
         unsafe {
+            let id: u32 = gl::CreateShader(kind);
             gl::ShaderSource(id, 1, &source.as_ptr(), null());
             gl::CompileShader(id);
-        }
 
-        let mut success: GLint = 1;
-
-        unsafe {
+            let mut success: GLint = 1;
             gl::GetShaderiv(id, gl::COMPILE_STATUS, &mut success);
-        }
 
-        if success == 0 {
-            // this means the shader failed to compile
-            let mut error_message_length: GLint = 0;
-
-            unsafe {
+            if success == 0 {
+                let mut error_message_length: GLint = 0;
                 gl::GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut error_message_length);
-            }
 
-            let error_message: CString =
-                create_whitespace_cstring_with_len(error_message_length as usize);
+                let error_message: CString =
+                    create_whitespace_cstring_with_len(error_message_length as usize);
 
-            unsafe {
                 gl::GetShaderInfoLog(
                     id,
                     error_message_length,
                     null_mut(),
                     error_message.as_ptr() as *mut GLchar,
-                )
-            };
+                );
 
-            return Err(error_message.to_string_lossy().into_owned());
+                return Err(error_message.to_string_lossy().into_owned());
+            }
+
+            Ok(Shader { id })
         }
-
-        Ok(Shader { id })
     }
 
     pub fn id(&self) -> GLuint {
@@ -65,60 +64,44 @@ impl Drop for Shader {
     }
 }
 
-fn create_whitespace_cstring_with_len(len: usize) -> CString {
-    let mut buffer: Vec<u8> = Vec::with_capacity(len + 1);
-    buffer.extend([b' '].iter().cycle().take(len));
-    unsafe { CString::from_vec_unchecked(buffer) }
-}
-
+// Program struct and its implementation
 pub struct Program {
     id: GLuint,
 }
 
 impl Program {
     pub fn from_shaders(shaders: &[Shader]) -> Result<Self, String> {
-        let id: GLuint = unsafe { gl::CreateProgram() };
+        unsafe {
+            let id: GLuint = gl::CreateProgram();
 
-        for shader in shaders {
-            unsafe {
+            for shader in shaders {
                 gl::AttachShader(id, shader.id());
             }
-        }
 
-        unsafe {
             gl::LinkProgram(id);
-        }
 
-        let mut success: GLint = 1;
-
-        unsafe {
+            let mut success: GLint = 1;
             gl::GetProgramiv(id, gl::LINK_STATUS, &mut success);
-        }
 
-        if success == 0 {
-            // this means the program failed to link
-            let mut error_message_length: GLint = 0;
-
-            unsafe {
+            if success == 0 {
+                let mut error_message_length: GLint = 0;
                 gl::GetProgramiv(id, gl::INFO_LOG_LENGTH, &mut error_message_length);
-            }
 
-            let error_message: CString =
-                create_whitespace_cstring_with_len(error_message_length as usize);
+                let error_message: CString =
+                    create_whitespace_cstring_with_len(error_message_length as usize);
 
-            unsafe {
                 gl::GetProgramInfoLog(
                     id,
                     error_message_length,
                     null_mut(),
                     error_message.as_ptr() as *mut GLchar,
-                )
-            };
+                );
 
-            return Err(error_message.to_string_lossy().into_owned());
+                return Err(error_message.to_string_lossy().into_owned());
+            }
+
+            Ok(Program { id })
         }
-
-        Ok(Program { id })
     }
 
     pub fn set(&self) {
@@ -136,20 +119,24 @@ impl Drop for Program {
     }
 }
 
-pub fn create_program() -> Result<Program, &'static str> {
-    let vertex_shader = load_shader_from_file("./src/shaders/vertex.glsl", gl::VERTEX_SHADER);
-
-    let fragment_shader = load_shader_from_file("./src/shaders/fragment.glsl", gl::FRAGMENT_SHADER);
-
-    let program = Program::from_shaders(&[vertex_shader, fragment_shader]).unwrap();
-
+// Function to create a program
+pub fn create_program() -> Result<Program, Box<dyn std::error::Error>> {
+    let vertex_shader = load_shader_from_file("./src/shaders/vertex.glsl", gl::VERTEX_SHADER)?;
+    let fragment_shader =
+        load_shader_from_file("./src/shaders/fragment.glsl", gl::FRAGMENT_SHADER)?;
+    let program = Program::from_shaders(&[vertex_shader, fragment_shader])?;
     Ok(program)
 }
 
-fn load_shader_from_file(filename: &str, kind: GLenum) -> Shader {
-    let source = std::fs::read_to_string(filename).unwrap();
-    let c_str = CString::new(source.as_bytes()).unwrap();
-    Shader::from_source(&c_str, kind).unwrap()
+// Function to load a shader from a file
+fn load_shader_from_file(
+    filename: &str,
+    kind: GLenum,
+) -> Result<Shader, Box<dyn std::error::Error>> {
+    let source = std::fs::read_to_string(filename)?;
+    let c_str = CString::new(source.as_bytes())?;
+    let shader = Shader::from_source(&c_str, kind)?;
+    Ok(shader)
 }
 
 /// OpenGL Vertex Buffer Object
