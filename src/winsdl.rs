@@ -9,13 +9,13 @@ pub struct WinSdl {
 }
 
 impl WinSdl {
-    pub fn new(width: usize, height: usize) -> Result<Self, &'static str> {
+    pub fn new(width: usize, height: usize, title: &str) -> Result<Self, &'static str> {
         let sdl = sdl2::init().unwrap();
         let video_subsystem = sdl.video().unwrap();
 
         Self::set_gl_attributes(&video_subsystem);
 
-        let window = Self::create_window(&video_subsystem, width, height);
+        let window = Self::create_window(&video_subsystem, width, height, title);
 
         let gl_context = window.gl_create_context().unwrap();
         let gl = Self::load_gl(&video_subsystem);
@@ -43,9 +43,10 @@ impl WinSdl {
         video_subsystem: &sdl2::VideoSubsystem,
         width: usize,
         height: usize,
+        title: &str,
     ) -> Window {
         video_subsystem
-            .window("SDL2", width as u32, height as u32)
+            .window(title, width as u32, height as u32)
             .opengl()
             .build()
             .unwrap()

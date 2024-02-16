@@ -10,7 +10,7 @@ mod winsdl;
 fn main() {
     println!("Hello, world!");
 
-    let mut winsdl = WinSdl::new(800, 600).unwrap();
+    let mut winsdl = WinSdl::new(800, 600, "OpenGL").unwrap();
 
     let start: Instant = Instant::now();
 
